@@ -25,7 +25,6 @@
 #define CURRENTCOST_TEMP_OFFSET 2.3
 
 static int g_port = 80;
-static char *g_fqdn = NULL;
 static double g_temperature;
 static uint g_watts[10], g_wattcount;
 static char *g_statsfile = "/var/log/currentcost/currentcost.csv";
@@ -76,16 +75,11 @@ static void process_html(struct evhttp_request *req, void *arg)
 {
 	evhttp_add_header(req->output_headers, "Connection", "close");
 
-	if (g_fqdn) {
-		struct evbuffer *buf = evbuffer_new();
+	struct evbuffer *buf = evbuffer_new();
 
-		evbuffer_add_printf(buf, html, g_fqdn, g_port);
-		
-		evhttp_send_reply(req, HTTP_OK, "OK", buf);
-	} else {
-		evhttp_send_error(req, HTTP_SERVUNAVAIL, 
-			"Failed to find fully qualified domain name");
-	}
+	evbuffer_add(buf, html, sizeof(html) - 1);
+	
+	evhttp_send_reply(req, HTTP_OK, "OK", buf);
 }
 
 static int create_http(struct event_base *base)
@@ -105,37 +99,6 @@ static int create_http(struct event_base *base)
 	evhttp_set_cb(httpd, "/", process_html, NULL);
 	
 	return 0;
-}
-
-static void get_fqdn()
-{
-	char host[HOST_NAME_MAX];
-
-	if (gethostname(host, sizeof(host))) {
-		printf("warning: failed to get hostname: %m\n");
-		return;
-	}
-
-	struct addrinfo *res, hints;
-
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_flags = AI_CANONNAME;
-
-	int rc = getaddrinfo(host, NULL, &hints, &res);
-
-	if (rc) {
-		printf("warning: failed to get fully qualified domain name"
-						": %s\n", gai_strerror(rc));
-		return;
-	}
-
-	if (res && res->ai_canonname) {
-		g_fqdn = strdup(res->ai_canonname);
-	} else {
-		printf("warning: failed to find fully qualified domain name\n");
-	}
-
-	freeaddrinfo(res);
 }
 
 static void logit()
@@ -253,8 +216,6 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	get_fqdn();
-
 	struct event_base *base = event_init();
 
 	rc = open_cc(base);
@@ -278,8 +239,6 @@ int main(int argc, char *argv[])
 	openlog("currentcostd", LOG_ODELAY | LOG_PID, LOG_USER);
 	event_base_dispatch(base);
 	closelog();
-
-	free(g_fqdn);
 
 	return 0;
 }

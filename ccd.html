@@ -9,7 +9,7 @@ var request = null;
 function get_temp()
 {
 	request = new XMLHttpRequest();
-	request.open('GET', 'http://%s:%d/currentcost', true);
+	request.open('GET', 'currentcost', true);
 	request.onreadystatechange = on_state_change
 	request.send(null);
 }
@@ -28,10 +28,10 @@ function on_state_change()
 	}
 
 	var tempField = document.getElementById('temp');
-	var wallField = document.getElementById('watt');
+	var wattField = document.getElementById('watt');
 
 	tempField.innerHTML = t
-	wallField.innerHTML = w
+	wattField.innerHTML = w
 
 	setTimeout("get_temp()", 2000);
 }
