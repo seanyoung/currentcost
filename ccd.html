@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Current Cost</title>
+<meta charset="us-ascii" />
+<script>
+var request = null;
+
+function get_temp()
+{
+	request = new XMLHttpRequest();
+	request.open('GET', 'http://%s:%d/currentcost', true);
+	request.onreadystatechange = on_state_change
+	request.send(null);
+}
+
+function on_state_change()
+{
+	if (request.readyState != 4) return;
+
+	if (request.status == 200) {
+		var json = JSON.parse(request.responseText.toString());
+
+		t = json.temperature + "&deg;C";
+		w = json.watts[0];
+	} else {
+		w = t = request.statusText;
+	}
+
+	var tempField = document.getElementById('temp');
+	var wallField = document.getElementById('watt');
+
+	tempField.innerHTML = t
+	wallField.innerHTML = w
+
+	setTimeout("get_temp()", 2000);
+}
+</script>
+</head>
+<body onload="get_temp()">
+<fieldset>
+<legend>Temperature Monitor</legend>
+<div id="temp">0&deg;C</div>
+</fieldset>
+<p>
+<fieldset>
+<legend>Watt Monitor</legend>
+<div id="watt">0</div>
+</fieldset>
+</body>
+</html>
