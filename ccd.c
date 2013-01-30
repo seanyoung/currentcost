@@ -190,8 +190,8 @@ static int open_cc(struct event_base *base)
 	currentcost_init(cc);
 	cc->cb = data_cb;
 	
-	struct event *event = event_new(base, fd, EV_READ | EV_PERSIST,
-							cc_data, cc);
+	struct event *event = event_new(base, fd, 
+				EV_TIMEOUT | EV_READ | EV_PERSIST, cc_data, cc);
 	event_add(event, &timeout);
 
 	return 0;
@@ -217,7 +217,8 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'h':
-			printf("Usage: %s [-d] [-p port] [-h]\n", argv[0]);
+			printf("Usage: %s [-d] [-p port] [-h] [device]\n", 
+								argv[0]);
 			exit(EXIT_SUCCESS);
 		case '?':
 			exit(EXIT_FAILURE);
