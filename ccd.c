@@ -159,10 +159,16 @@ static void data_cb(double temperature, uint count, uint *watts)
 
 static void cc_data(evutil_socket_t fd, short event, void *arg)
 {
-	int rc = currentcost_read(arg, fd);
-	if (rc) {
-		syslog(LOG_ERR, "failed to read from %s: %s\n", g_device,
-								strerror(rc));
+	if (event & EV_READ) {
+		int rc = currentcost_read(arg, fd);
+		if (rc) {
+			syslog(LOG_ERR, "failed to read from %s: %s\n", 
+							g_device, strerror(rc));
+			exit(EXIT_FAILURE);
+		}
+	} else if (event & EV_TIMEOUT) {
+		syslog(LOG_ERR, "timeout reading from %s after %d seconds\n", 
+							g_device, CC_TIMEOUT);
 		exit(EXIT_FAILURE);
 	}
 }
@@ -170,6 +176,7 @@ static void cc_data(evutil_socket_t fd, short event, void *arg)
 static int open_cc(struct event_base *base)
 {
 	struct currentcost *cc = malloc(sizeof(*cc));
+	struct timeval timeout = { CC_TIMEOUT, 0 };
 	int fd, rc;
 
 	rc = currentcost_open(&fd, g_device);
@@ -184,8 +191,8 @@ static int open_cc(struct event_base *base)
 	cc->cb = data_cb;
 	
 	struct event *event = event_new(base, fd, EV_READ | EV_PERSIST,
-                                                        cc_data, cc);
-        event_add(event, NULL);
+							cc_data, cc);
+	event_add(event, &timeout);
 
 	return 0;
 }
