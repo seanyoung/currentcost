@@ -71,11 +71,9 @@ static void char_data(void *data, const char *s, int len)
 	if (parser->last_tag == TAG_WATTS) {
 		if (parser->in_msg == true && parser->in_channel != 0 &&
 			parser->watt_present[parser->in_channel] == false) {
-
-			int watt = atoi(s);
 			
 			parser->watt_present[parser->in_channel - 1] = true;
-			parser->watt[parser->in_channel - 1] = watt;
+			parser->watt[parser->in_channel - 1] = atoi(s);
 		}
 	} else if (parser->last_tag == TAG_TMPR) {
 		parser->temperature = atof(s);
@@ -178,11 +176,11 @@ int currentcost_read(struct currentcost *cc, int fd)
 	}
 }
 
-int currentcost_open(int *fd_ret)
+int currentcost_open(int *fd_ret, const char *path)
 {
 	int rc, fd;
 
-	fd = TEMP_FAILURE_RETRY(open(CC_DEVICE, O_RDWR | O_NOCTTY | O_NDELAY | O_CLOEXEC));
+	fd = TEMP_FAILURE_RETRY(open(path, O_RDWR | O_NOCTTY | O_NDELAY | O_CLOEXEC));
 	if (fd == -1)
 		return errno;
 

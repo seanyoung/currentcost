@@ -11,7 +11,7 @@ struct currentcost {
 	char data[8192];
 };
 
-int currentcost_open(int*);
+int currentcost_open(int*, const char *path);
 int currentcost_read(struct currentcost *cc, int fd);
 
 static void inline currentcost_init(struct currentcost *cc)

@@ -28,6 +28,7 @@ static int g_port = 80;
 static double g_temperature;
 static uint g_watts[10], g_wattcount;
 static char *g_statsfile = "/var/log/currentcost/currentcost.csv";
+static char *g_device = CC_DEVICE;
 
 /*
  * '{ "temperature": 10.2, "watts": [ 512 ] }'
@@ -73,13 +74,19 @@ static void process_watt(struct evhttp_request *req, void *arg)
 
 static void process_html(struct evhttp_request *req, void *arg)
 {
-	evhttp_add_header(req->output_headers, "Connection", "close");
-
 	struct evbuffer *buf = evbuffer_new();
+	if (buf == NULL) {
+		evhttp_send_error(req, HTTP_SERVUNAVAIL, "Out of memory");
+		return;
+	}
+
+	evhttp_add_header(req->output_headers, "Connection", "close");
 
 	evbuffer_add(buf, html, sizeof(html) - 1);
 	
 	evhttp_send_reply(req, HTTP_OK, "OK", buf);
+
+	evbuffer_free(buf);
 }
 
 static int create_http(struct event_base *base)
@@ -154,7 +161,7 @@ static void cc_data(evutil_socket_t fd, short event, void *arg)
 {
 	int rc = currentcost_read(arg, fd);
 	if (rc) {
-		syslog(LOG_ERR, "failed to read from " CC_DEVICE ": %s\n", 
+		syslog(LOG_ERR, "failed to read from %s: %s\n", g_device,
 								strerror(rc));
 		exit(EXIT_FAILURE);
 	}
@@ -165,10 +172,10 @@ static int open_cc(struct event_base *base)
 	struct currentcost *cc = malloc(sizeof(*cc));
 	int fd, rc;
 
-	rc = currentcost_open(&fd);
+	rc = currentcost_open(&fd, g_device);
 
 	if (rc) {
-		fprintf(stderr, "failed to open " CC_DEVICE ": %s\n", 
+		fprintf(stderr, "failed to open %s: %s\n", g_device,
 								strerror(rc));
 		exit(EXIT_FAILURE);
 	}
@@ -208,6 +215,15 @@ int main(int argc, char *argv[])
 		case '?':
 			exit(EXIT_FAILURE);
 		}
+	}
+
+	if (optind < argc) {
+		if (argv[optind][0] == '/') 
+			g_device = strdup(argv[optind]);
+		else
+			asprintf(&g_device, "/dev/%s", argv[optind]);
+
+		optind++;
 	}
 
 	if (optind < argc) {
