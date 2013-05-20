@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
+#include <math.h>
 
 /* lib */
 #include <evhttp.h>
@@ -25,7 +26,7 @@
 #define CURRENTCOST_TEMP_OFFSET 2.3
 
 static int g_port = 80;
-static double g_temperature;
+static double g_temperature = INFINITY;
 static uint g_watts[10], g_wattcount;
 static char *g_statsfile = "/var/log/currentcost/currentcost.csv";
 static char *g_device = CC_DEVICE;
@@ -38,7 +39,7 @@ static void process_watt(struct evhttp_request *req, void *arg)
 {
 	int i;
 
-	if (g_temperature == 0.0) {
+	if (!isfinite(g_temperature)) {
 		// nothing received yet
 		evhttp_send_error(req, HTTP_SERVUNAVAIL, "Not ready");
 		return;
