@@ -3,7 +3,7 @@
 #define __CC_H__
 
 #define CC_DEVICE "/dev/ttyUSB0"
-#define CC_TIMEOUT 60
+#define CC_TIMEOUT (60*30)
 
 struct currentcost {
 	void (*cb)(double temperature, unsigned channels, unsigned *watts);
