@@ -22,7 +22,7 @@ function on_state_change()
 		var json = JSON.parse(request.responseText.toString());
 
 		t = json.temperature + "&deg;C";
-		w = json.watts[0];
+		w = json.watts.join(", ");
 	} else {
 		w = t = request.statusText;
 	}

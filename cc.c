@@ -21,12 +21,13 @@ struct parser {
 	struct currentcost *cc;
 	bool in_msg;
 	double temperature;
+	unsigned sensor;
 	unsigned in_channel;
-	unsigned watt[CHANNELS];
-	bool watt_present[CHANNELS];
+	unsigned watt;
 	enum {
 		TAG_WATTS,
 		TAG_TMPR,
+		TAG_SENSOR,
 		TAG_NONE
 	} last_tag;
 };
@@ -52,8 +53,6 @@ static void start(void *data, const char *el, const char **attr)
 	if (strcmp(el, "msg") == 0) {
 		parser->in_channel = 0;
 		parser->in_msg = true;
-		for (i=0; i<CHANNELS; i++)
-			parser->watt_present[i] = false;
 		return;
 	}
 
@@ -61,6 +60,8 @@ static void start(void *data, const char *el, const char **attr)
 		parser->last_tag = TAG_WATTS;
 	} else if (strcmp(el, "tmpr") == 0) {
 		parser->last_tag = TAG_TMPR;
+	} else if (strcmp(el, "sensor") == 0) {
+		parser->last_tag = TAG_SENSOR;
 	}
 }
 
@@ -69,14 +70,11 @@ static void char_data(void *data, const char *s, int len)
 	struct parser *parser = data;
 
 	if (parser->last_tag == TAG_WATTS) {
-		if (parser->in_msg == true && parser->in_channel != 0 &&
-			parser->watt_present[parser->in_channel] == false) {
-			
-			parser->watt_present[parser->in_channel - 1] = true;
-			parser->watt[parser->in_channel - 1] = atoi(s);
-		}
+		parser->watt = atoi(s);
 	} else if (parser->last_tag == TAG_TMPR) {
 		parser->temperature = atof(s);
+	} else if (parser->last_tag == TAG_SENSOR) {
+		parser->sensor = atoi(s);
 	}
 }
 
@@ -100,14 +98,7 @@ static void end(void *data, const char *el)
 	}
 
 	if (strcmp(el, "msg") == 0) {
-		unsigned count;
-
-		for (count=CHANNELS; count > 0; count--) {
-			if (parser->watt_present[count - 1]) 
-				break;
-		}
-
-		parser->cc->cb(parser->temperature, count, parser->watt);
+		parser->cc->cb(parser->temperature, parser->sensor, parser->watt);
 	}
 }
 
@@ -125,7 +116,8 @@ static void currentcost_parse(struct currentcost *cc, char *data, size_t size)
 	if (!XML_Parse(p, data, size, true)) {
 		enum XML_Error rc = XML_GetErrorCode(p);
 
-		syslog(LOG_WARNING, "XML parse error: %s", XML_ErrorString(rc));
+		syslog(LOG_WARNING, "XML parse error: %s while parsing '%.*s'", 
+				XML_ErrorString(rc), size, data);
 	}
 
 	XML_ParserFree(p);

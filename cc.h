@@ -6,7 +6,7 @@
 #define CC_TIMEOUT (60*30)
 
 struct currentcost {
-	void (*cb)(double temperature, unsigned channels, unsigned *watts);
+	void (*cb)(double temperature, unsigned sensor, unsigned watt);
 	int fd;
 	size_t size;
 	char data[8192];

@@ -23,7 +23,9 @@
 
 #include "cc.h"
 
-#define CURRENTCOST_TEMP_OFFSET 2.3
+/* 2.3 for old CC, -2.2 for new from car boot */
+/* #define CURRENTCOST_TEMP_OFFSET -2.2 */
+#define CURRENTCOST_TEMP_OFFSET 0.0
 
 static int g_port = 80;
 static double g_temperature = INFINITY;
@@ -48,7 +50,8 @@ static void process_watt(struct evhttp_request *req, void *arg)
 	evhttp_add_header(req->output_headers, "Connection", "close");
 
 	if (evhttp_request_get_command(req) != EVHTTP_REQ_GET) {
-		evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+		evhttp_add_header(req->output_headers, "Allow", "GET");
+		evhttp_send_error(req, HTTP_BADMETHOD, "Method not allowed");
 		return;
 	}
 
@@ -78,6 +81,12 @@ static void process_html(struct evhttp_request *req, void *arg)
 	struct evbuffer *buf = evbuffer_new();
 	if (buf == NULL) {
 		evhttp_send_error(req, HTTP_SERVUNAVAIL, "Out of memory");
+		return;
+	}
+
+	if (evhttp_request_get_command(req) != EVHTTP_REQ_GET) {
+		evhttp_add_header(req->output_headers, "Allow", "GET");
+		evhttp_send_error(req, HTTP_BADMETHOD, "Method not allowed");
 		return;
 	}
 
@@ -145,14 +154,15 @@ static void logit()
 	TEMP_FAILURE_RETRY(close(fd));
 }
 
-static void data_cb(double temperature, uint count, uint *watts)
+static void data_cb(double temperature, uint sensor, uint watts)
 {
-	if (count > 0) {
-		g_temperature = temperature;
-		g_wattcount = count;
+	if (sensor >= g_wattcount) 
+		g_wattcount = sensor + 1;
 
-		for (int i=0; i<count; i++)
-			g_watts[i] = watts[i];	
+	if (g_watts[sensor] != watts || g_temperature != temperature) {
+		g_temperature = temperature;
+
+		g_watts[sensor] = watts;	
 
 		logit();
 	}
