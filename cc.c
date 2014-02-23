@@ -15,14 +15,10 @@
 
 #include "cc.h"
 
-#define CHANNELS 10
-
 struct parser {
 	struct currentcost *cc;
-	bool in_msg;
 	double temperature;
 	unsigned sensor;
-	unsigned in_channel;
 	unsigned watt;
 	enum {
 		TAG_WATTS,
@@ -35,26 +31,8 @@ struct parser {
 static void start(void *data, const char *el, const char **attr)
 {
 	struct parser *parser = data;
-	char buf[10];
-	int i;
 
 	parser->last_tag = TAG_NONE;
-
-	if (strncmp(el, "ch", 2) == 0) {
-		for (i=1; i<=CHANNELS; i++) {
-			snprintf(buf, sizeof(buf), "ch%d", i);
-			if (strcmp(el, buf) == 0) {
-				parser->in_channel = i;
-				return;
-			}
-		}
-	}
-
-	if (strcmp(el, "msg") == 0) {
-		parser->in_channel = 0;
-		parser->in_msg = true;
-		return;
-	}
 
 	if (strcmp(el, "watts") == 0) {
 		parser->last_tag = TAG_WATTS;
@@ -83,19 +61,6 @@ static void end(void *data, const char *el)
 	struct parser *parser = data;
 
 	parser->last_tag = TAG_NONE;
-
-	if (strncmp(el, "ch", 2) == 0) {
-		int i;
-		char buf[10];
-
-		for (i=1; i<CHANNELS-1; i++) {
-			snprintf(buf, sizeof(buf), "ch%d", i);
-			if (strcmp(el, buf) == 0) {
-				parser->in_channel = 0;
-				return;
-			}
-		}
-	}
 
 	if (strcmp(el, "msg") == 0) {
 		parser->cc->cb(parser->temperature, parser->sensor, parser->watt);

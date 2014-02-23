@@ -156,16 +156,25 @@ static void logit()
 
 static void data_cb(double temperature, uint sensor, uint watts)
 {
-	if (sensor >= g_wattcount) 
+	bool changed = false;
+
+	if (sensor >= g_wattcount)  {
 		g_wattcount = sensor + 1;
-
-	if (g_watts[sensor] != watts || g_temperature != temperature) {
-		g_temperature = temperature;
-
-		g_watts[sensor] = watts;	
-
-		logit();
+		changed = true;
 	}
+
+	if (temperature && g_temperature != temperature) {
+		g_temperature = temperature;
+		changed = true;
+	}
+
+	if (g_watts[sensor] != watts) {
+		g_watts[sensor] = watts;	
+		changed = true;
+	}
+
+	if (changed)
+		logit();
 }
 
 static void cc_data(evutil_socket_t fd, short event, void *arg)
