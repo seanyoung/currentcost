@@ -90,6 +90,7 @@ static void process_html(struct evhttp_request *req, void *arg)
 		return;
 	}
 
+	evhttp_add_header(req->output_headers, "Content-Encoding", "gzip");
 	evhttp_add_header(req->output_headers, "Connection", "close");
 
 	evbuffer_add(buf, html, sizeof(html) - 1);
