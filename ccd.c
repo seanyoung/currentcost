@@ -26,16 +26,30 @@
 /* 2.3 for old CC, -2.2 for new from car boot */
 /* #define CURRENTCOST_TEMP_OFFSET -2.2 */
 #define CURRENTCOST_TEMP_OFFSET 0.0
+#define CHANNELS 10
+#define TIMEOUT_PRESENT 60
 
 static int g_port = 80;
 static double g_temperature = INFINITY;
-static uint g_watts[10], g_wattcount;
+static uint g_watts[CHANNELS];
+static time_t g_watt_lastseen[CHANNELS];
 static char *g_statsfile = "/var/log/currentcost/currentcost.csv";
 static char *g_device = CC_DEVICE;
 
 /*
  * '{ "temperature": 10.2, "watts": [ 512 ] }'
  */
+static uint count_appliances(time_t now)
+{
+	uint i, last = -1;
+
+	for (i=0; i<CHANNELS; i++) {
+		if (g_watt_lastseen[i] + TIMEOUT_PRESENT >= now)
+			last = i;
+	}
+
+	return last + 1;
+}
 
 static void process_watt(struct evhttp_request *req, void *arg)
 {
@@ -66,8 +80,17 @@ static void process_watt(struct evhttp_request *req, void *arg)
 	evbuffer_add_printf(buf, "{ \"temperature\": %.2f, \"watts\": [", 
 				g_temperature + CURRENTCOST_TEMP_OFFSET);
 
-	for (i=0; i<g_wattcount; i++)
-		evbuffer_add_printf(buf, "%s %u", (i ? "," : ""), g_watts[i]);
+	time_t now = time(NULL);
+
+	for (i=0; i<count_appliances(now); i++) {
+		if (i)
+			evbuffer_add_printf(buf, ",");
+
+		if (g_watt_lastseen[i] + TIMEOUT_PRESENT >= now)
+			evbuffer_add_printf(buf, " %u", g_watts[i]);
+		else
+			evbuffer_add_printf(buf, " null");
+	}
 
 	evbuffer_add_printf(buf, " ] }\n");
 	evhttp_send_reply(req, HTTP_OK, "OK", buf);
@@ -126,9 +149,14 @@ static void logit()
 
 	size_t size = snprintf(buf, sizeof(buf), "%ld,%.2f", time(NULL), 
 								g_temperature);
+	time_t now = time(NULL);
+	int i;
 
-	for (int i=0; i<g_wattcount; i++) {
-		size += snprintf(buf + size, sizeof(buf) - size, ",%u", 
+	for (i=0; i<count_appliances(now); i++) {
+		buf[size++] = ',';
+
+		if (g_watt_lastseen[i] + TIMEOUT_PRESENT >= now)
+			size += snprintf(buf + size, sizeof(buf) - size, "%u", 
 								g_watts[i]);
 	}
 
@@ -159,9 +187,9 @@ static void data_cb(double temperature, uint sensor, uint watts)
 {
 	bool changed = false;
 
-	if (sensor >= g_wattcount)  {
-		g_wattcount = sensor + 1;
-		changed = true;
+	if (sensor >= CHANNELS)  {
+		syslog(LOG_ERR, "sensor #%d out of range", sensor);
+		return;
 	}
 
 	if (temperature && g_temperature != temperature) {
@@ -171,6 +199,7 @@ static void data_cb(double temperature, uint sensor, uint watts)
 
 	if (g_watts[sensor] != watts) {
 		g_watts[sensor] = watts;	
+		g_watt_lastseen[sensor] = time(NULL);
 		changed = true;
 	}
 
