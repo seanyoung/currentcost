@@ -26,7 +26,7 @@
 /* 2.3 for old CC, -2.2 for new from car boot */
 /* #define CURRENTCOST_TEMP_OFFSET -2.2 */
 #define CURRENTCOST_TEMP_OFFSET 0.0
-#define CHANNELS 10
+#define CHANNELS 11
 #define TIMEOUT_PRESENT 60
 
 static int g_port = 80;
@@ -37,7 +37,7 @@ static char *g_statsfile = "/var/log/currentcost/currentcost.csv";
 static char *g_device = CC_DEVICE;
 
 /*
- * '{ "temperature": 10.2, "watts": [ 512 ] }'
+ * '{ "temperature": 10.2, "watts": [ 512, null, 102 ] }'
  */
 static uint count_appliances(time_t now)
 {
@@ -61,15 +61,11 @@ static void process_watt(struct evhttp_request *req, void *arg)
 		return;
 	}
 
-	evhttp_add_header(req->output_headers, "Connection", "close");
-
 	if (evhttp_request_get_command(req) != EVHTTP_REQ_GET) {
 		evhttp_add_header(req->output_headers, "Allow", "GET");
 		evhttp_send_error(req, HTTP_BADMETHOD, "Method not allowed");
 		return;
 	}
-
-	evhttp_add_header(req->output_headers, "Content-Type", "application/json");
 
 	struct evbuffer *buf = evbuffer_new();
 	if (buf == NULL) {
@@ -77,7 +73,11 @@ static void process_watt(struct evhttp_request *req, void *arg)
 		return;
 	}
 
-	evbuffer_add_printf(buf, "{ \"temperature\": %.2f, \"watts\": [", 
+	evhttp_add_header(req->output_headers, "Content-Type", "application/json");
+	evhttp_add_header(req->output_headers, "Connection", "close");
+
+
+	evbuffer_add_printf(buf, "{ \"temperature\": %.1f, \"watts\": [", 
 				g_temperature + CURRENTCOST_TEMP_OFFSET);
 
 	time_t now = time(NULL);
@@ -145,12 +145,12 @@ static int create_http(struct event_base *base)
 static void logit()
 {
 	// log it
-	char buf[100];
-
-	size_t size = snprintf(buf, sizeof(buf), "%ld,%.2f", time(NULL), 
-								g_temperature);
 	time_t now = time(NULL);
+	char buf[100];
+	size_t size;
 	int i;
+
+	size = snprintf(buf, sizeof(buf), "%ld,%.1f", now, g_temperature);
 
 	for (i=0; i<count_appliances(now); i++) {
 		buf[size++] = ',';
@@ -197,9 +197,9 @@ static void data_cb(double temperature, uint sensor, uint watts)
 		changed = true;
 	}
 
+	g_watt_lastseen[sensor] = time(NULL);
 	if (g_watts[sensor] != watts) {
 		g_watts[sensor] = watts;	
-		g_watt_lastseen[sensor] = time(NULL);
 		changed = true;
 	}
 
