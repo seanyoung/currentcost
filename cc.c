@@ -20,6 +20,7 @@ struct parser {
 	double temperature;
 	unsigned sensor;
 	unsigned watt;
+	bool is_history;
 	enum {
 		TAG_WATTS,
 		TAG_TMPR,
@@ -40,6 +41,8 @@ static void start(void *data, const char *el, const char **attr)
 		parser->last_tag = TAG_TMPR;
 	} else if (strcmp(el, "sensor") == 0) {
 		parser->last_tag = TAG_SENSOR;
+	} else if (strcmp(el, "hist") == 0) {
+		parser->is_history = true;
 	}
 }
 
@@ -62,7 +65,7 @@ static void end(void *data, const char *el)
 
 	parser->last_tag = TAG_NONE;
 
-	if (strcmp(el, "msg") == 0) {
+	if (strcmp(el, "msg") == 0 && !parser->is_history) {
 		parser->cc->cb(parser->temperature, parser->sensor, parser->watt);
 	}
 }
@@ -73,6 +76,8 @@ static void currentcost_parse(struct currentcost *cc, char *data, size_t size)
 	memset(&parser, 0, sizeof(parser));
 	parser.cc = cc;
 	
+	syslog(LOG_DEBUG, "Received from current cost device '%.*s'", size - 2, data);
+
 	XML_Parser p = XML_ParserCreate("US-ASCII");
 	XML_SetUserData(p, &parser);
 	XML_SetElementHandler(p, start, end);
