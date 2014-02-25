@@ -75,8 +75,6 @@ static void currentcost_parse(struct currentcost *cc, char *data, size_t size)
 	struct parser parser;
 	memset(&parser, 0, sizeof(parser));
 	parser.cc = cc;
-	
-	syslog(LOG_DEBUG, "Received from current cost device '%.*s'", size - 2, data);
 
 	XML_Parser p = XML_ParserCreate("US-ASCII");
 	XML_SetUserData(p, &parser);
