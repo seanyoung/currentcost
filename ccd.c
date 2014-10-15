@@ -264,6 +264,7 @@ static void cc_data(evutil_socket_t fd, short event, void *arg)
 		if (rc) {
 			syslog(LOG_ERR, "failed to read from %s: %s\n", 
 							g_device, strerror(rc));
+			unlink(g_sockfile);
 			exit(EXIT_FAILURE);
 		}
 	} else if (event & EV_TIMEOUT) {
