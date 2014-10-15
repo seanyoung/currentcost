@@ -19,6 +19,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <syslog.h>
 
 #include "cc.h"
@@ -29,11 +31,12 @@
 #define CHANNELS 11
 #define TIMEOUT_PRESENT 60
 
-static int g_port = 80;
+static int g_port = -1;
 static double g_temperature = INFINITY;
 static uint g_watts[CHANNELS];
 static time_t g_watt_lastseen[CHANNELS];
 static char *g_statsfile = "/var/log/currentcost/currentcost.csv";
+static char *g_sockfile = "/var/run/currentcost.sock";
 static char *g_device = CC_DEVICE;
 
 /*
@@ -123,6 +126,48 @@ static void process_html(struct evhttp_request *req, void *arg)
 	evbuffer_free(buf);
 }
 
+int evhttp_bind_unixsock(struct evhttp *httpd, const char *path)
+{
+	struct sockaddr_un local;
+	struct stat st;
+	int fd;
+
+	local.sun_family = AF_UNIX;
+	strcpy(local.sun_path, path);
+
+	/* if the file exists and it is a socket, remove it. Someone
+	   could create a symlink and get us to remove random files */
+	if (TEMP_FAILURE_RETRY(stat(path, &st)) == 0 && S_ISSOCK(st.st_mode))
+		unlink(path);
+
+	fd = socket(AF_UNIX, SOCK_CLOEXEC | SOCK_NONBLOCK | SOCK_STREAM, 0);
+	if (fd == -1)
+		return -1;
+
+	if (bind(fd, (struct sockaddr*)&local, sizeof(local))) {
+		close(fd);
+		return -1;
+	}
+
+	/* fchmod(fd, 0777) does nothing */
+	if (chmod(path, 0777)) {
+		close(fd);
+		return -1;
+	}
+
+	if (listen(fd, 128)) {
+		close(fd);
+		return -1;
+	}
+
+	if (evhttp_accept_socket(httpd, fd)) {
+		close(fd);
+		return -1;
+	}
+	
+	return 0;
+}
+
 static int create_http(struct event_base *base)
 {
 	struct evhttp *httpd;
@@ -131,7 +176,12 @@ static int create_http(struct event_base *base)
 	if (httpd == NULL)
 		return ENOMEM;
 
-	if (evhttp_bind_socket(httpd, "::", g_port)) {
+	if (evhttp_bind_unixsock(httpd, g_sockfile)) {
+		evhttp_free(httpd);
+		return errno;
+	}
+
+	if (g_port > 0 && evhttp_bind_socket(httpd, "::", g_port)) {
 		evhttp_free(httpd);
 		return errno;
 	}
@@ -250,7 +300,7 @@ int main(int argc, char *argv[])
 	int rc;
 	bool daemonize = true;
 
-	while ((rc = getopt(argc, argv, "hdp:")) != -1) {
+	while ((rc = getopt(argc, argv, "hdp:s:")) != -1) {
 		switch (rc) {
 		case 'd':
 			daemonize = false;
@@ -265,9 +315,12 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'h':
-			printf("Usage: %s [-d] [-p port] [-h] [device]\n", 
-								argv[0]);
+			printf("Usage: %s [-d] [-p port] [-s unixpath]"
+					" [-h] [device]\n", argv[0]);
 			exit(EXIT_SUCCESS);
+		case 's':
+			g_sockfile = strdup(optarg);
+			break;
 		case '?':
 			exit(EXIT_FAILURE);
 		}
