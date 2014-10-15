@@ -41,14 +41,14 @@ static char *g_device = CC_DEVICE;
  */
 static uint count_appliances(time_t now)
 {
-	uint i, last = -1;
+	int i;
 
-	for (i=0; i<CHANNELS; i++) {
+	for (i=CHANNELS - 1; i>=0 ; i--) {
 		if (g_watt_lastseen[i] + TIMEOUT_PRESENT >= now)
-			last = i;
+			break;
 	}
 
-	return last + 1;
+	return i + 1;
 }
 
 static void process_watt(struct evhttp_request *req, void *arg)
@@ -219,7 +219,6 @@ static void cc_data(evutil_socket_t fd, short event, void *arg)
 	} else if (event & EV_TIMEOUT) {
 		syslog(LOG_ERR, "timeout reading from %s after %d seconds\n", 
 							g_device, CC_TIMEOUT);
-		exit(EXIT_FAILURE);
 	}
 }
 
@@ -227,9 +226,9 @@ static int open_cc(struct event_base *base)
 {
 	struct currentcost *cc = malloc(sizeof(*cc));
 	struct timeval timeout = { CC_TIMEOUT, 0 };
-	int fd, rc;
+	int rc;
 
-	rc = currentcost_open(&fd, g_device);
+	rc = currentcost_open(cc, g_device);
 
 	if (rc) {
 		fprintf(stderr, "failed to open %s: %s\n", g_device,
@@ -237,10 +236,9 @@ static int open_cc(struct event_base *base)
 		exit(EXIT_FAILURE);
 	}
 
-	currentcost_init(cc);
 	cc->cb = data_cb;
 	
-	struct event *event = event_new(base, fd, 
+	struct event *event = event_new(base, cc->fd, 
 				EV_TIMEOUT | EV_READ | EV_PERSIST, cc_data, cc);
 	event_add(event, &timeout);
 

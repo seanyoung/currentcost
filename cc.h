@@ -3,7 +3,7 @@
 #define __CC_H__
 
 #define CC_DEVICE "/dev/ttyUSB0"
-#define CC_TIMEOUT (60*30)
+#define CC_TIMEOUT (60)
 
 struct currentcost {
 	void (*cb)(double temperature, unsigned sensor, unsigned watt);
@@ -12,13 +12,8 @@ struct currentcost {
 	char data[8192];
 };
 
-int currentcost_open(int*, const char *path);
+int currentcost_open(struct currentcost *cc, const char *path);
 int currentcost_read(struct currentcost *cc, int fd);
-
-static void inline currentcost_init(struct currentcost *cc)
-{
-	cc->size = 0;
-}
 
 #endif
 

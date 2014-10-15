@@ -136,7 +136,7 @@ int currentcost_read(struct currentcost *cc, int fd)
 	}
 }
 
-int currentcost_open(int *fd_ret, const char *path)
+int currentcost_open(struct currentcost *cc, const char *path)
 {
 	int rc, fd;
 
@@ -166,32 +166,8 @@ int currentcost_open(int *fd_ret, const char *path)
 		return rc;
 	}
 
-	*fd_ret = fd;
+	cc->fd = fd;
+	cc->size = 0;
 
 	return 0;
 }
-
-#ifdef TEST
-static void cb(double temperature, unsigned channels, unsigned *watts)
-{
-	printf("temp: %.2f", temperature);
-
-	for (unsigned i=0; i<channels; i++) printf(",%d", watts[i]);
-
-	putchar('\n');
-}
-
-int main(int argc, char *argv[])
-{
-	struct currentcost cc;
-
-	currentcost_init(&cc);
-
-	int fd = open("cc.txt", O_RDONLY| O_NDELAY | O_CLOEXEC);
-	cc.cb = cb;
-
-	currentcost_read(&cc, fd);
-
-	return 0;
-}
-#endif
