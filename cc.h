@@ -2,6 +2,8 @@
 #ifndef __CC_H__
 #define __CC_H__
 
+#include <expat.h>
+
 #define CC_DEVICE "/dev/ttyUSB0"
 #define CC_TIMEOUT (60)
 
@@ -10,10 +12,12 @@ struct currentcost {
 	int fd;
 	size_t size;
 	char data[8192];
+	XML_Parser expat;
 };
 
 int currentcost_open(struct currentcost *cc, const char *path);
-int currentcost_read(struct currentcost *cc, int fd);
+int currentcost_read(struct currentcost *cc);
+void currentcost_close(struct currentcost *cc);
 
 #endif
 

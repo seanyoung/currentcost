@@ -260,7 +260,7 @@ static void data_cb(double temperature, uint sensor, uint watts)
 static void cc_data(evutil_socket_t fd, short event, void *arg)
 {
 	if (event & EV_READ) {
-		int rc = currentcost_read(arg, fd);
+		int rc = currentcost_read(arg);
 		if (rc) {
 			syslog(LOG_ERR, "failed to read from %s: %s\n", 
 							g_device, strerror(rc));

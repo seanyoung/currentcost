@@ -76,29 +76,29 @@ static void currentcost_parse(struct currentcost *cc, char *data, size_t size)
 	memset(&parser, 0, sizeof(parser));
 	parser.cc = cc;
 
-	XML_Parser p = XML_ParserCreate("US-ASCII");
-	XML_SetUserData(p, &parser);
-	XML_SetElementHandler(p, start, end);
-	XML_SetCharacterDataHandler(p, char_data);
+	XML_SetUserData(cc->expat, &parser);
+	XML_SetElementHandler(cc->expat, start, end);
+	XML_SetCharacterDataHandler(cc->expat, char_data);
 
-	if (!XML_Parse(p, data, size, true)) {
-		enum XML_Error rc = XML_GetErrorCode(p);
+	if (!XML_Parse(cc->expat, data, size, true)) {
+		enum XML_Error rc = XML_GetErrorCode(cc->expat);
 
 		syslog(LOG_WARNING, "XML parse error: %s while parsing '%.*s'", 
 				XML_ErrorString(rc), size, data);
 	}
 
-	XML_ParserFree(p);
+	XML_ParserReset(cc->expat, "US-ASCII");
 }
 
-int currentcost_read(struct currentcost *cc, int fd)
+int currentcost_read(struct currentcost *cc)
 {
 	while (true) {
 		ssize_t rc;
 
 		size_t len = cc->size;
 
-		rc = read(fd, cc->data + cc->size, sizeof(cc->data) - cc->size);
+		rc = read(cc->fd, cc->data + cc->size, 
+					sizeof(cc->data) - cc->size);
 		if (rc == 0)
 			return EIO;
 
@@ -166,8 +166,20 @@ int currentcost_open(struct currentcost *cc, const char *path)
 		return rc;
 	}
 
+	cc->expat = XML_ParserCreate("US-ASCII");
+	if (!cc->expat) {
+		TEMP_FAILURE_RETRY(close(fd));
+		return ENOMEM;
+	}
+
 	cc->fd = fd;
 	cc->size = 0;
 
 	return 0;
+}
+
+void currentcost_close(struct currentcost *cc)
+{
+	TEMP_FAILURE_RETRY(close(cc->fd));
+	XML_ParserFree(cc->expat);
 }
