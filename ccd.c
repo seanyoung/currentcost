@@ -328,10 +328,19 @@ int main(int argc, char *argv[])
 	}
 
 	if (optind < argc) {
-		if (argv[optind][0] == '/') 
+		if (argv[optind][0] == '/') {
 			g_device = strdup(argv[optind]);
-		else
-			asprintf(&g_device, "/dev/%s", argv[optind]);
+			if (!g_device) {
+				fprintf(stderr, "error: failed to malloc\n");
+				exit(EXIT_FAILURE);
+			}
+		}
+		else {
+			if (asprintf(&g_device, "/dev/%s", argv[optind]) < 0) {
+				fprintf(stderr, "error: failed to malloc\n");
+				exit(EXIT_FAILURE);
+			}
+		}
 
 		optind++;
 	}

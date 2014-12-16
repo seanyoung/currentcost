@@ -84,7 +84,7 @@ static void currentcost_parse(struct currentcost *cc, char *data, size_t size)
 		enum XML_Error rc = XML_GetErrorCode(cc->expat);
 
 		syslog(LOG_WARNING, "XML parse error: %s while parsing '%.*s'", 
-				XML_ErrorString(rc), size, data);
+				XML_ErrorString(rc), (int)size, data);
 	}
 
 	XML_ParserReset(cc->expat, "US-ASCII");
