@@ -1,0 +1,2 @@
+#
+ACTION=="add", SUBSYSTEM=="tty", KERNEL=="ttyUSB*", ATTRS{idVendor}=="067b", ATTRS{idProduct}=="2303", OWNER="cc", RUN+="/usr/sbin/currentcostd -p 9442 $kernel"
