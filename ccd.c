@@ -299,12 +299,12 @@ static int open_cc(struct event_base *base)
 int main(int argc, char *argv[])
 {
 	int rc;
-	bool daemonize = true;
+	bool daemonize = false;
 
 	while ((rc = getopt(argc, argv, "hdp:s:")) != -1) {
 		switch (rc) {
 		case 'd':
-			daemonize = false;
+			daemonize = true;
 			break;
 		case 'p':
 			g_port = atoi(optarg);

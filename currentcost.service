@@ -1,0 +1,12 @@
+[Unit]
+Description=CurrentCost logger and server
+Wants=dev-currentcost.device
+After=network.target dev-currentcost.device
+
+[Service]
+User=cc
+Group=cc
+ExecStart=/usr/sbin/currentcostd
+
+[Install]
+WantedBy=multi-user.target

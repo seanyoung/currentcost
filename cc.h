@@ -4,7 +4,7 @@
 
 #include <expat.h>
 
-#define CC_DEVICE "/dev/ttyUSB0"
+#define CC_DEVICE "/dev/currentcost"
 #define CC_TIMEOUT (60)
 
 struct currentcost {
