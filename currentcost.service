@@ -1,6 +1,7 @@
 [Unit]
 Description=CurrentCost logger and server
 Wants=dev-currentcost.device
+Requires=currentcost.socket
 After=network.target dev-currentcost.device
 
 [Service]
@@ -10,3 +11,4 @@ ExecStart=/usr/sbin/currentcostd
 
 [Install]
 WantedBy=multi-user.target
+Also=currentcost.socket

@@ -1,0 +1,10 @@
+[Unit]
+Description=Currentcost socket
+
+[Socket]
+ListenStream=9442
+Service=currentcost.service
+
+[Install]
+WantedBy=sockets.target
+

@@ -25,6 +25,9 @@
 
 #include "cc.h"
 
+#include <systemd/sd-daemon.h>
+
+
 /* 2.3 for old CC, -2.2 for new from car boot */
 /* #define CURRENTCOST_TEMP_OFFSET -2.2 */
 #define CURRENTCOST_TEMP_OFFSET 0.0
@@ -126,61 +129,39 @@ static void process_html(struct evhttp_request *req, void *arg)
 	evbuffer_free(buf);
 }
 
-int evhttp_bind_unixsock(struct evhttp *httpd, const char *path)
-{
-	struct sockaddr_un local;
-	struct stat st;
-	int fd;
-
-	local.sun_family = AF_UNIX;
-	strcpy(local.sun_path, path);
-
-	/* if the file exists and it is a socket, remove it. Someone
-	   could create a symlink and get us to remove random files */
-	if (TEMP_FAILURE_RETRY(stat(path, &st)) == 0 && S_ISSOCK(st.st_mode))
-		unlink(path);
-
-	fd = socket(AF_UNIX, SOCK_CLOEXEC | SOCK_NONBLOCK | SOCK_STREAM, 0);
-	if (fd == -1)
-		return -1;
-
-	if (bind(fd, (struct sockaddr*)&local, sizeof(local))) {
-		close(fd);
-		return -1;
-	}
-
-	/* fchmod(fd, 0777) does nothing */
-	if (chmod(path, 0777)) {
-		close(fd);
-		return -1;
-	}
-
-	if (listen(fd, 128)) {
-		close(fd);
-		return -1;
-	}
-
-	if (evhttp_accept_socket(httpd, fd)) {
-		close(fd);
-		return -1;
-	}
-	
-	return 0;
-}
-
 static int create_http(struct event_base *base)
 {
 	struct evhttp *httpd;
+	int i, n;
 
 	httpd = evhttp_new(base);
 	if (httpd == NULL)
 		return ENOMEM;
 
-	if (evhttp_bind_unixsock(httpd, g_sockfile)) {
-		evhttp_free(httpd);
-		return errno;
-	}
+	n = sd_listen_fds(0);
+	for (i=0; i<n; i++) {
+		int rc, flags, fd = SD_LISTEN_FDS_START + i;
+		flags = fcntl(fd, F_GETFL, 0);
+		if (flags < 0) {
+			rc = errno;
+			syslog(LOG_WARNING, "warning: fcntl failed on systemd socket: %m");
+			evhttp_free(httpd);
+			return rc;
+		}
 
+		if (fcntl(fd, F_SETFL, flags | O_NONBLOCK)) {
+			rc = errno;
+			syslog(LOG_WARNING, "warning: fcntl failed on systemd socket: %m");
+			evhttp_free(httpd);
+			return rc;
+		}
+
+		if (evhttp_accept_socket(httpd, fd)) {
+			evhttp_free(httpd);
+			syslog(LOG_WARNING, "warning: failed to add systemd socket");
+			return EINVAL;
+		}
+	}
 	if (g_port > 0 && evhttp_bind_socket(httpd, "::", g_port)) {
 		evhttp_free(httpd);
 		return errno;
