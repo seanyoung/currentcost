@@ -39,7 +39,6 @@ static double g_temperature = INFINITY;
 static uint g_watts[CHANNELS];
 static time_t g_watt_lastseen[CHANNELS];
 static char *g_statsfile = "/var/log/currentcost/currentcost.csv";
-static char *g_sockfile = "/var/run/currentcost.sock";
 static char *g_device = CC_DEVICE;
 
 /*
@@ -245,7 +244,6 @@ static void cc_data(evutil_socket_t fd, short event, void *arg)
 		if (rc) {
 			syslog(LOG_ERR, "failed to read from %s: %s\n", 
 							g_device, strerror(rc));
-			unlink(g_sockfile);
 			exit(EXIT_FAILURE);
 		}
 	} else if (event & EV_TIMEOUT) {
@@ -297,12 +295,9 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'h':
-			printf("Usage: %s [-d] [-p port] [-s unixpath]"
-					" [-h] [device]\n", argv[0]);
+			printf("Usage: %s [-d] [-p port] [-h] [device]\n", 
+								argv[0]);
 			exit(EXIT_SUCCESS);
-		case 's':
-			g_sockfile = strdup(optarg);
-			break;
 		case '?':
 			exit(EXIT_FAILURE);
 		}
