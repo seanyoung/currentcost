@@ -203,14 +203,14 @@ static void logit()
 		ssize_t ret = TEMP_FAILURE_RETRY(write(fd, buf + off, size));
 		if (ret == -1) {
 			syslog(LOG_WARNING, "failed to write %s: %m", g_statsfile);
-			TEMP_FAILURE_RETRY(close(fd));
+			close(fd);
 			return;
 		}
 		off += ret;
 		size -= ret;
 	}
 
-	TEMP_FAILURE_RETRY(close(fd));
+	close(fd);
 }
 
 static void data_cb(double temperature, uint sensor, uint watts)

@@ -168,7 +168,7 @@ int currentcost_open(struct currentcost *cc, const char *path)
 	rc = TEMP_FAILURE_RETRY(tcgetattr(fd, &termios));
 	if (rc == -1) {
 		rc = errno;
-		TEMP_FAILURE_RETRY(close(fd));
+		close(fd);
 		return rc;
 	}
 
@@ -181,13 +181,13 @@ int currentcost_open(struct currentcost *cc, const char *path)
 	rc = TEMP_FAILURE_RETRY(tcsetattr(fd, TCSAFLUSH, &termios));
 	if (rc == -1) {
 		rc = errno;
-		TEMP_FAILURE_RETRY(close(fd));
+		close(fd);
 		return rc;
 	}
 
 	cc->expat = XML_ParserCreate("US-ASCII");
 	if (!cc->expat) {
-		TEMP_FAILURE_RETRY(close(fd));
+		close(fd);
 		return ENOMEM;
 	}
 
@@ -199,6 +199,6 @@ int currentcost_open(struct currentcost *cc, const char *path)
 
 void currentcost_close(struct currentcost *cc)
 {
-	TEMP_FAILURE_RETRY(close(cc->fd));
+	close(cc->fd);
 	XML_ParserFree(cc->expat);
 }
