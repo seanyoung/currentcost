@@ -83,22 +83,39 @@ static void currentcost_parse(struct currentcost *cc, char *data, size_t size)
 	if (!XML_Parse(cc->expat, data, size, true)) {
 		enum XML_Error rc = XML_GetErrorCode(cc->expat);
 
-		syslog(LOG_WARNING, "XML parse error: %s while parsing '%.*s'", 
+		syslog(LOG_WARNING, "XML parse error: %s while parsing '%.*s'",
 				XML_ErrorString(rc), (int)size, data);
 	}
 
 	XML_ParserReset(cc->expat, "US-ASCII");
 }
 
+/* currentcost produces zero bytes in its output */
+unsigned strcpy_ignore_zeros(char *dst, const char *src, unsigned len)
+{
+	unsigned i, newlen = len;
+
+	for (i=0; i<len; i++) {
+		if (src[i])
+			*dst++ = src[i];
+		else
+			newlen--;
+	}
+
+	return newlen;
+}
+
 int currentcost_read(struct currentcost *cc)
 {
+	char buf[sizeof(cc->data)];
+
 	while (true) {
 		ssize_t rc;
 
 		size_t len = cc->size;
 
-		rc = read(cc->fd, cc->data + cc->size, 
-					sizeof(cc->data) - cc->size);
+		rc = read(cc->fd, buf, sizeof(cc->data) - cc->size);
+
 		if (rc == 0)
 			return EIO;
 
@@ -113,13 +130,15 @@ int currentcost_read(struct currentcost *cc)
 			}
 		}
 
+		rc = strcpy_ignore_zeros(cc->data + cc->size, buf, rc);
+
 		cc->size += rc;
 
 		while (len < cc->size) {
 			if (cc->data[len++] == '\n') {
 				currentcost_parse(cc, cc->data, len);
 				if (len < cc->size) {
-					memmove(cc->data, cc->data + len, 
+					memmove(cc->data, cc->data + len,
 							cc->size - len);
 					cc->size -= len;
 					len = 0;
