@@ -176,6 +176,7 @@ int currentcost_open(struct currentcost *cc, const char *path)
 	cfmakeraw(&termios);
 	cfsetspeed(&termios, B57600);
 	termios.c_iflag &= ~(INPCK | IXON | IXOFF);
+	termios.c_lflag |= ICANON;
 	termios.c_cflag &= ~(CSTOPB | CRTSCTS);
 
 	rc = TEMP_FAILURE_RETRY(tcsetattr(fd, TCSAFLUSH, &termios));
