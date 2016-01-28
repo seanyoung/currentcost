@@ -176,11 +176,15 @@ static void logit()
 {
 	// log it
 	time_t now = time(NULL);
-	char buf[100];
+	char buf[100], timestr[80];
+	struct tm tm;
 	size_t size;
 	int i;
 
-	size = snprintf(buf, sizeof(buf), "%ld,%.1f", now, g_temperature);
+	localtime_r(&now, &tm);
+	strftime(timestr, sizeof(timestr), "%d %b %Y %T %z", &tm);
+
+	size = snprintf(buf, sizeof(buf), "%s,%.1f", timestr, g_temperature);
 
 	for (i=0; i<count_appliances(now); i++) {
 		buf[size++] = ',';
@@ -194,7 +198,7 @@ static void logit()
 
 	int fd = TEMP_FAILURE_RETRY(open(g_statsfile, O_APPEND|O_CREAT|O_WRONLY|O_CLOEXEC, 0644));
 	if (fd == -1) {
-		syslog(LOG_WARNING, "failed to write %s: %m", g_statsfile);
+		syslog(LOG_WARNING, "failed to open %s: %m", g_statsfile);
 		return;
 	}
 	
