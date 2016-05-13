@@ -249,8 +249,11 @@ static void cc_data(evutil_socket_t fd, short event, void *arg)
 			syslog(LOG_ERR, "failed to read from %s: %s\n", 
 							g_device, strerror(rc));
 			exit(EXIT_FAILURE);
+		} else {
+			sd_notify(0, "READY=1\nSTATUS=Processing");
 		}
 	} else if (event & EV_TIMEOUT) {
+		sd_notify(0, "STATUS=Read timeout");
 		syslog(LOG_ERR, "timeout reading from %s after %d seconds\n", 
 							g_device, CC_TIMEOUT);
 	}
@@ -350,6 +353,8 @@ int main(int argc, char *argv[])
 		printf("error: failed to fork: %m\n");
 		exit(EXIT_FAILURE);
 	}
+
+	sd_notify(0, "READY=0\nSTATUS=Waiting for first message");
 
 	openlog("currentcostd", LOG_ODELAY | LOG_PID, LOG_USER);
 	event_base_dispatch(base);
