@@ -177,24 +177,31 @@ static void logit()
 	// log it
 	time_t now = time(NULL);
 	char buf[100], timestr[80];
+	char instr[200];
 	struct tm tm;
-	size_t size;
+	size_t size, size2;
 	int i;
 
 	localtime_r(&now, &tm);
 	strftime(timestr, sizeof(timestr), "%d %b %Y %T %z", &tm);
 
 	size = snprintf(buf, sizeof(buf), "%s,%.1f", timestr, g_temperature);
+	size2 = snprintf(instr, sizeof(instr), "currentcost temperature=%.1f", g_temperature);
 
 	for (i=0; i<count_appliances(now); i++) {
 		buf[size++] = ',';
 
-		if (g_watt_lastseen[i] + TIMEOUT_PRESENT >= now)
+		if (g_watt_lastseen[i] + TIMEOUT_PRESENT >= now) {
 			size += snprintf(buf + size, sizeof(buf) - size, "%u", 
 								g_watts[i]);
+			size2 += snprintf(instr + size2, sizeof(instr) - size2,
+					",sensors%d=%di", i, g_watts[i]);
+		}
 	}
 
 	buf[size++] = '\n';
+	size2 += snprintf(instr + size2, sizeof(instr) - size2,
+				" %ld000000000", now);
 
 	int fd = TEMP_FAILURE_RETRY(open(g_statsfile, O_APPEND|O_CREAT|O_WRONLY|O_CLOEXEC, 0644));
 	if (fd == -1) {
@@ -215,6 +222,24 @@ static void logit()
 	}
 
 	close(fd);
+
+	int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (sock == -1) {
+		syslog(LOG_WARNING, "failed to create udp socket: %m");
+		return;
+	}
+
+	struct sockaddr_in influx;
+
+	influx.sin_family = AF_INET;
+	influx.sin_port = htons(8089);
+	influx.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+	if (sendto(sock, instr, strlen(instr), MSG_NOSIGNAL, &influx, sizeof(influx)) == -1) {
+		syslog(LOG_WARNING, "failed to send udp packet to influx: %m");
+	}
+
+	close(sock);
 }
 
 static void data_cb(double temperature, uint sensor, uint watts)
